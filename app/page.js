@@ -1,95 +1,97 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client'
 
-export default function Home() {
+import { useCallback, useEffect, useState } from "react";
+import Post from "@/component/post";
+import '@/css/post.css';
+import '@/css/post_pc.css';
+
+const API_KEY = process.env.NEXT_PUBLIC_ACCESS_KEY;
+
+const Home = () => {
+  const [category, setCategory] = useState('');
+  const [posts, setPosts] = useState({
+    general: { data: [], offset: 0 },
+    entertainment: { data: [], offset: 0 },
+    science: { data: [], offset: 0 },
+    technology: { data: [], offset: 0 },
+  });
+
+  const getPosts = async (cat) => {
+    const { offset } = posts[cat];
+
+    const res = await fetch(
+      `https://api.mediastack.com/v1/news?limit=10&offset=${offset}&access_key=${API_KEY}&categories=${cat}`
+    );
+    const returnedPosts = await res.json();
+
+    return returnedPosts;
+  }
+
+  const appendPost = async () => {
+    const { data } = await getPosts(category);
+    setPosts(prev => ({
+      ...prev,
+      [category]: {
+        data: prev[category].data.concat(data),
+        offset: prev[category].offset + 10,
+      }
+    }));
+  }
+  
+  useEffect(() => {
+    if (category !== '' && posts[category].data.length === 0){
+      appendPost();
+    }
+  }, [category])
+
+  const handleScroll = useCallback(() => {
+    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+    if (scrollTop + clientHeight >= scrollHeight) {
+      appendPost();
+    }
+  })
+
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>app/page.js</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+    <div className='outer'>
+      <h2 className='title'>News</h2>
+      <select className='select-cat' value={category} onChange={e => setCategory(e.target.value)}>
+        <option value=''>select a category</option>
+        <option value='general'>general</option>
+        <option value='science'>science</option>
+        <option value='entertainment'>entertainment</option>
+        <option value='technology'>technology</option>
+      </select>
+      {
+        category
+        ?
+        <>
+        {
+          posts[category].data.map((item, idx) => {
+            return (
+              <Post
+                key={idx}
+                author={item.author}
+                category={item.category}
+                description={item.description}
+                image={item.image}
+                published_at={item.published_at}
+                source={item.source}
+                title={item.title}
+                url={item.url}
+              />
+            )})
+        }
+        </>
+        : null
+      }
     </div>
-  );
+  )
 }
+
+export default Home;
