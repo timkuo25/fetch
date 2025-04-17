@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Post from "@/component/post";
 import '@/css/post.css';
 import '@/css/post_pc.css';
@@ -15,12 +15,16 @@ const Home = () => {
     science: { data: [], offset: 0 },
     technology: { data: [], offset: 0 },
   });
+  const observer = useRef(null);
+  const triggerRef = useRef(null);
+
+  const LIMIT = 10;
 
   const getPosts = async (cat) => {
     const { offset } = posts[cat];
 
     const res = await fetch(
-      `https://api.mediastack.com/v1/news?limit=10&offset=${offset}&access_key=${API_KEY}&categories=${cat}`
+      `https://api.mediastack.com/v1/news?limit=${LIMIT}&offset=${offset}&access_key=${API_KEY}&categories=${cat}`
     );
     const returnedPosts = await res.json();
 
@@ -33,7 +37,7 @@ const Home = () => {
       ...prev,
       [category]: {
         data: prev[category].data.concat(data),
-        offset: prev[category].offset + 10,
+        offset: prev[category].offset + LIMIT,
       }
     }));
   }
@@ -44,18 +48,47 @@ const Home = () => {
     }
   }, [category])
 
-  const handleScroll = useCallback(() => {
-    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-    if (scrollTop + clientHeight >= scrollHeight) {
+  // const handleScroll = useCallback(() => {
+  //   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+  //   if (scrollTop + clientHeight >= scrollHeight) {
+  //     appendPost();
+  //   }
+  // })
+
+
+  // useEffect(() => {
+  //   window.addEventListener('scroll', handleScroll);
+  //   return () => window.removeEventListener('scroll', handleScroll);
+  // }, [handleScroll]);
+
+
+  const handleIntersect = useCallback(entries => {
+    const entry = entries[0];
+    if (
+      category !== '' &&
+      entry.isIntersecting &&
+      posts[category].data.length !== 0 // Prevent from repeated getPost
+    ) {
       appendPost();
     }
-  })
-
+  }, [appendPost])
 
   useEffect(() => {
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
+    if (observer.current) observer.current.disconnect();
+
+    observer.current = new IntersectionObserver(handleIntersect, {
+      threshold: 1.0,
+    });
+
+    if (triggerRef.current) {
+      observer.current.observe(triggerRef.current);
+    }
+
+    return () => {
+      if (observer.current) observer.current.disconnect();
+    };
+  }, [handleIntersect]);
+
 
   return (
     <div className='outer'>
@@ -90,6 +123,7 @@ const Home = () => {
         </>
         : null
       }
+      <div ref={triggerRef} style={{ height: 1 }} />
     </div>
   )
 }
