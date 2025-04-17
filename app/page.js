@@ -15,24 +15,58 @@ const Home = () => {
     science: { data: [], offset: 0 },
     technology: { data: [], offset: 0 },
   });
+  // For infinite scroll
   const observer = useRef(null);
   const triggerRef = useRef(null);
-
   const LIMIT = 10;
+  const TIMEOUT = 5000;
 
   const getPosts = async (cat) => {
-    const { offset } = posts[cat];
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
 
-    const res = await fetch(
-      `https://api.mediastack.com/v1/news?limit=${LIMIT}&offset=${offset}&access_key=${API_KEY}&categories=${cat}`
-    );
-    const returnedPosts = await res.json();
+    try {
+      const { offset } = posts[cat];
+  
+      const res = await fetch(
+        `https://api.mediastack.com/v1/news?limit=${LIMIT}&offset=${offset}&access_key=${API_KEY}&categories=${cat}`,
+        { signal: controller.signal }
+      );
 
-    return returnedPosts;
-  }
+      clearTimeout(timeoutId);
+      if (!res.ok) {
+        throw new Error(`HTTP error! Status: ${res.status}`);
+      }
+  
+      const returnedPosts = await res.json();
+      if (!returnedPosts || !Array.isArray(returnedPosts.data)) {
+        throw new Error('Unexpected response format');
+      }
+  
+      return returnedPosts;
+
+    } catch (err) {
+      
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        console.error('Request timed out');
+      } else {
+        console.error('Failed to get posts:', err);
+      }
+
+      return null;
+    }
+  };
 
   const appendPost = async () => {
-    const { data } = await getPosts(category);
+    const posts = await getPosts(category);
+    if (posts === null) {
+      alert('Failed to get posts');
+      setCategory('');
+      return;
+    }
+
+    const data = posts.data;
     setPosts(prev => ({
       ...prev,
       [category]: {
@@ -48,20 +82,6 @@ const Home = () => {
     }
   }, [category])
 
-  // const handleScroll = useCallback(() => {
-  //   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-  //   if (scrollTop + clientHeight >= scrollHeight) {
-  //     appendPost();
-  //   }
-  // })
-
-
-  // useEffect(() => {
-  //   window.addEventListener('scroll', handleScroll);
-  //   return () => window.removeEventListener('scroll', handleScroll);
-  // }, [handleScroll]);
-
-
   const handleIntersect = useCallback(entries => {
     const entry = entries[0];
     if (
@@ -76,9 +96,12 @@ const Home = () => {
   useEffect(() => {
     if (observer.current) observer.current.disconnect();
 
-    observer.current = new IntersectionObserver(handleIntersect, {
-      threshold: 1.0,
-    });
+    observer.current = new IntersectionObserver(
+      handleIntersect,
+      {
+        threshold: 1.0,
+      }
+    );
 
     if (triggerRef.current) {
       observer.current.observe(triggerRef.current);
@@ -114,7 +137,6 @@ const Home = () => {
                 description={item.description}
                 image={item.image}
                 published_at={item.published_at}
-                source={item.source}
                 title={item.title}
                 url={item.url}
               />
