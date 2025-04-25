@@ -25,7 +25,7 @@ const Home = () => {
     } catch (error) {
       console.error('Error fetching posts:', error);
     }
-  }
+  };
 
   const appendPost = async () => {
     const { data } = await getPosts(category, posts.length);
@@ -36,7 +36,7 @@ const Home = () => {
     }
 
     setPosts(prev => prev.concat(data));
-  }
+  };
 
   const handleSwitchCat = async () => {
     const { data } = await getPosts(category, posts.length);
@@ -46,7 +46,7 @@ const Home = () => {
       return;
     }
     setPosts(data);
-  }
+  };
 
   const handleIntersect = useCallback(entries => {
     const entry = entries[0];
@@ -57,7 +57,7 @@ const Home = () => {
     ) {
       appendPost();
     }
-  }, [appendPost])
+  }, [appendPost]);
 
   useEffect(() => {
     if (observer.current) observer.current.disconnect();
@@ -82,7 +82,7 @@ const Home = () => {
     if (category !== ''){
       handleSwitchCat();
     }
-  }, [category])
+  }, [category]);
 
 
   return (
