@@ -29,9 +29,15 @@
   padding: 15px;
 }
 
+.image-holder {
+  height: 200px;
+}
+
 .post img{
   max-width: 90%;
   border-radius: 1em;
+  aspect-ratio: 16 / 9;
+  object-fit: fill;
 }
 
 

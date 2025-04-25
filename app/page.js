@@ -5,89 +5,55 @@ import Post from "@/component/post";
 import '@/css/post.css';
 import '@/css/post_pc.css';
 
-const API_KEY = process.env.NEXT_PUBLIC_ACCESS_KEY;
 
 const Home = () => {
   const [category, setCategory] = useState('');
-  const [posts, setPosts] = useState({
-    general: { data: [], offset: 0 },
-    entertainment: { data: [], offset: 0 },
-    science: { data: [], offset: 0 },
-    technology: { data: [], offset: 0 },
-  });
+  const [posts, setPosts] = useState([]);
+
   // For infinite scroll
   const observer = useRef(null);
   const triggerRef = useRef(null);
-  const LIMIT = 10;
-  const TIMEOUT = 5000;
 
-  const getPosts = async (cat) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
-
+  const getPosts = async (category, offset) => {
     try {
-      const { offset } = posts[cat];
-  
-      const res = await fetch(
-        `https://api.mediastack.com/v1/news?limit=${LIMIT}&offset=${offset}&access_key=${API_KEY}&categories=${cat}`,
-        { signal: controller.signal }
-      );
-
-      clearTimeout(timeoutId);
-      if (!res.ok) {
-        throw new Error(`HTTP error! Status: ${res.status}`);
+      const response = await fetch(`/api/posts?cat=${category}&offset=${offset}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
-  
-      const returnedPosts = await res.json();
-      if (!returnedPosts || !Array.isArray(returnedPosts.data)) {
-        throw new Error('Unexpected response format');
-      }
-  
-      return returnedPosts;
-
-    } catch (err) {
-      
-      clearTimeout(timeoutId);
-      if (err.name === 'AbortError') {
-        console.error('Request timed out');
-      } else {
-        console.error('Failed to get posts:', err);
-      }
-
-      return null;
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching posts:', error);
     }
-  };
+  }
 
   const appendPost = async () => {
-    const posts = await getPosts(category);
-    if (posts === null) {
+    const { data } = await getPosts(category, posts.length);
+    if (!data) {
       alert('Failed to get posts');
       setCategory('');
       return;
     }
 
-    const data = posts.data;
-    setPosts(prev => ({
-      ...prev,
-      [category]: {
-        data: prev[category].data.concat(data),
-        offset: prev[category].offset + LIMIT,
-      }
-    }));
+    setPosts(prev => prev.concat(data));
   }
-  
-  useEffect(() => {
-    if (category !== '' && posts[category].data.length === 0){
-      appendPost();
+
+  const handleSwitchCat = async () => {
+    const { data } = await getPosts(category, posts.length);
+    if (!data) {
+      alert('Failed to get posts');
+      setCategory('');
+      return;
     }
-  }, [category])
+    setPosts(data);
+  }
 
   const handleIntersect = useCallback(entries => {
     const entry = entries[0];
     if (
       category !== '' &&
       entry.isIntersecting &&
-      posts[category].data.length !== 0 // Prevent from repeated getPost
+      posts.length !== 0 // Prevent from repeated getPost
     ) {
       appendPost();
     }
@@ -111,6 +77,12 @@ const Home = () => {
       if (observer.current) observer.current.disconnect();
     };
   }, [handleIntersect]);
+  
+  useEffect(() => {
+    if (category !== ''){
+      handleSwitchCat();
+    }
+  }, [category])
 
 
   return (
@@ -128,7 +100,7 @@ const Home = () => {
         ?
         <>
         {
-          posts[category].data.map((item, idx) => {
+          posts.map((item, idx) => {
             return (
               <Post
                 key={idx}
